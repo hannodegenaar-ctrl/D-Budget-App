@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Our Budget</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body { font-family: 'DM Sans', sans-serif; background: #F7F5F0; color: #1a1a1a; overflow-x: hidden; }
+
+  /* ── Header ── */
+  .header { background: #1a1a1a; color: #F7F5F0; padding: 20px 20px 18px; position: sticky; top: 0; z-index: 100; }
+  .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .app-name { font-size: 12px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.5; }
+  .month-label { font-size: 12px; font-family: 'DM Mono', monospace; opacity: 0.5; }
+  .total-remaining { font-size: 38px; font-weight: 300; font-family: 'DM Mono', monospace; letter-spacing: -0.02em; line-height: 1; }
+  .total-sub { font-size: 12px; opacity: 0.45; margin-top: 4px; }
+
+  /* ── Nav ── */
+  .nav { display: flex; background: #fff; border-bottom: 1px solid #ece8e1; position: sticky; top: 97px; z-index: 99; }
+  .nav-btn { flex: 1; padding: 13px 4px; font-size: 11px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; border: none; background: none; cursor: pointer; color: #999; font-family: 'DM Sans', sans-serif; border-bottom: 2px solid transparent; transition: all 0.15s; }
+  .nav-btn.active { color: #1a1a1a; border-bottom-color: #1a1a1a; }
+
+  /* ── Screens ── */
+  .screen { display: none; padding: 14px 14px 90px; }
+  .screen.active { display: block; }
+
+  /* ── Budget cards ── */
+  .budget-card { background: #fff; border-radius: 14px; padding: 14px 16px; border: 1px solid #ece8e1; margin-bottom: 8px; }
+  .budget-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px; }
+  .cat-name { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+  .cat-icon { font-size: 17px; }
+  .cat-right { text-align: right; }
+  .cat-remaining { font-size: 16px; font-weight: 600; font-family: 'DM Mono', monospace; }
+  .cat-remaining.over { color: #C8462D; }
+  .cat-budget-label { font-size: 11px; color: #bbb; font-family: 'DM Mono', monospace; }
+  .progress-bar { height: 5px; background: #f0ece6; border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 3px; background: #1a1a1a; transition: width 0.5s ease; }
+  .progress-fill.warn { background: #C9920A; }
+  .progress-fill.over { background: #C8462D; }
+  .cat-meta { display: flex; justify-content: space-between; margin-top: 6px; }
+  .cat-meta span { font-size: 11px; color: #bbb; font-family: 'DM Mono', monospace; }
+
+  /* ── Sections ── */
+  .section { background: #fff; border-radius: 14px; padding: 16px; border: 1px solid #ece8e1; margin-bottom: 10px; }
+  .section-label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #bbb; margin-bottom: 12px; }
+
+  /* ── Amount input ── */
+  .amount-wrap { position: relative; }
+  .amount-prefix { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 24px; font-weight: 300; color: #ccc; font-family: 'DM Mono', monospace; pointer-events: none; }
+  .amount-input { width: 100%; padding: 15px 15px 15px 38px; font-size: 30px; font-weight: 300; font-family: 'DM Mono', monospace; border: 1.5px solid #ece8e1; border-radius: 10px; background: #F7F5F0; outline: none; color: #1a1a1a; transition: border 0.15s; }
+  .amount-input:focus { border-color: #1a1a1a; background: #fff; }
+
+  /* ── Category pills ── */
+  .pill-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pill { padding: 8px 13px; border-radius: 22px; border: 1.5px solid #ece8e1; font-size: 12px; font-weight: 500; cursor: pointer; background: #F7F5F0; transition: all 0.12s; user-select: none; }
+  .pill.selected { background: #1a1a1a; color: #F7F5F0; border-color: #1a1a1a; }
+
+  /* ── Text inputs ── */
+  .text-input { width: 100%; padding: 11px 14px; font-size: 14px; border: 1.5px solid #ece8e1; border-radius: 10px; background: #F7F5F0; outline: none; font-family: 'DM Sans', sans-serif; color: #1a1a1a; transition: border 0.15s; }
+  .text-input:focus { border-color: #1a1a1a; background: #fff; }
+
+  /* ── Primary button ── */
+  .btn-primary { width: 100%; padding: 15px; background: #1a1a1a; color: #F7F5F0; border: none; border-radius: 12px; font-size: 15px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; letter-spacing: 0.02em; }
+  .btn-primary:hover { background: #333; }
+  .btn-primary:active { transform: scale(0.99); }
+  .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+
+  /* ── Receipt zone ── */
+  .receipt-zone { border: 2px dashed #d5d0c9; border-radius: 12px; padding: 30px 20px; text-align: center; cursor: pointer; background: #F7F5F0; transition: all 0.15s; }
+  .receipt-zone:hover { border-color: #1a1a1a; }
+  .receipt-zone-icon { font-size: 34px; margin-bottom: 8px; }
+  .receipt-zone-text { font-size: 14px; font-weight: 500; color: #555; margin-bottom: 3px; }
+  .receipt-zone-sub { font-size: 12px; color: #bbb; }
+  .receipt-preview { display: none; margin-top: 12px; }
+  .receipt-preview img { width: 100%; border-radius: 10px; max-height: 220px; object-fit: cover; margin-bottom: 10px; }
+  .receipt-amount-row { display: flex; align-items: center; gap: 10px; }
+  .receipt-amount-label { font-size: 13px; color: #777; min-width: 56px; }
+  .receipt-amount-input { flex: 1; padding: 9px 13px; border: 1.5px solid #ece8e1; border-radius: 9px; font-size: 16px; font-family: 'DM Mono', monospace; outline: none; background: #F7F5F0; transition: border 0.15s; }
+  .receipt-amount-input:focus { border-color: #1a1a1a; }
+  .btn-secondary { width: 100%; padding: 12px; background: #F7F5F0; color: #1a1a1a; border: 1.5px solid #ece8e1; border-radius: 10px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; margin-top: 10px; transition: all 0.15s; }
+  .btn-secondary:hover { background: #ece8e1; }
+
+  /* ── History ── */
+  .tx-item { background: #fff; border-radius: 12px; padding: 12px 14px; border: 1px solid #ece8e1; display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+  .tx-icon-box { font-size: 18px; width: 38px; height: 38px; background: #F7F5F0; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .tx-body { flex: 1; min-width: 0; }
+  .tx-cat { font-size: 13px; font-weight: 500; }
+  .tx-note { font-size: 12px; color: #aaa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tx-date { font-size: 11px; color: #ccc; margin-top: 1px; }
+  .tx-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+  .tx-amount { font-size: 15px; font-weight: 600; font-family: 'DM Mono', monospace; color: #C8462D; }
+  .tx-delete { font-size: 11px; color: #ddd; cursor: pointer; padding: 2px 6px; border-radius: 4px; border: 1px solid #ece8e1; background: none; font-family: 'DM Sans', sans-serif; }
+  .tx-delete:hover { color: #C8462D; border-color: #C8462D; }
+
+  /* ── Summary card ── */
+  .summary-card { background: #fff; border-radius: 14px; padding: 16px; border: 1px solid #ece8e1; margin-bottom: 10px; }
+  .summary-title { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #bbb; margin-bottom: 12px; }
+  .summary-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f4f1ec; }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-cat { font-size: 13px; color: #555; }
+  .summary-amt { font-size: 13px; font-family: 'DM Mono', monospace; font-weight: 500; }
+  .summary-total { font-weight: 600; color: #1a1a1a; }
+
+  /* ── Settings ── */
+  .settings-card { background: #fff; border-radius: 14px; padding: 16px; border: 1px solid #ece8e1; margin-bottom: 10px; }
+  .settings-title { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #bbb; margin-bottom: 14px; }
+  .settings-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .settings-icon { font-size: 18px; width: 34px; text-align: center; }
+  .settings-cat-name { font-size: 13px; font-weight: 500; flex: 1; }
+  .settings-input { width: 110px; padding: 8px 11px; border: 1.5px solid #ece8e1; border-radius: 9px; font-size: 14px; font-family: 'DM Mono', monospace; outline: none; text-align: right; background: #F7F5F0; transition: border 0.15s; }
+  .settings-input:focus { border-color: #1a1a1a; background: #fff; }
+  .settings-prefix { font-size: 13px; color: #bbb; font-family: 'DM Mono', monospace; }
+
+  /* ── Toast ── */
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: #1a1a1a; color: #F7F5F0; padding: 11px 22px; border-radius: 24px; font-size: 13px; font-weight: 500; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s; opacity: 0; z-index: 999; pointer-events: none; white-space: nowrap; }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  .empty-state { text-align: center; padding: 48px 20px; color: #ccc; font-size: 14px; }
+  .empty-icon { font-size: 36px; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-row">
+    <span class="app-name">Our Budget</span>
+    <span class="month-label" id="month-label"></span>
+  </div>
+  <div class="total-remaining" id="total-remaining">R—</div>
+  <div class="total-sub">remaining this month</div>
+</div>
+
+<div class="nav">
+  <button class="nav-btn active" onclick="showScreen('dashboard')">Budget</button>
+  <button class="nav-btn" onclick="showScreen('log')">Log</button>
+  <button class="nav-btn" onclick="showScreen('receipt')">Receipt</button>
+  <button class="nav-btn" onclick="showScreen('history')">History</button>
+  <button class="nav-btn" onclick="showScreen('settings')">Settings</button>
+</div>
+
+<!-- DASHBOARD -->
+<div id="screen-dashboard" class="screen active">
+  <div id="budget-grid"></div>
+</div>
+
+<!-- LOG EXPENSE -->
+<div id="screen-log" class="screen">
+  <div class="section">
+    <div class="section-label">Amount</div>
+    <div class="amount-wrap">
+      <span class="amount-prefix">R</span>
+      <input type="number" class="amount-input" id="log-amount" placeholder="0.00" inputmode="decimal" step="0.01" min="0">
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-label">Category</div>
+    <div class="pill-grid" id="log-pills"></div>
+  </div>
+  <div class="section">
+    <div class="section-label">Note (optional)</div>
+    <input type="text" class="text-input" id="log-note" placeholder="e.g. Checkers weekly shop">
+  </div>
+  <button class="btn-primary" onclick="logExpense()">Log Expense</button>
+</div>
+
+<!-- RECEIPT -->
+<div id="screen-receipt" class="screen">
+  <div class="section">
+    <div class="section-label">Receipt Photo</div>
+    <div class="receipt-zone" onclick="document.getElementById('file-input').click()">
+      <div class="receipt-zone-icon">📸</div>
+      <div class="receipt-zone-text">Tap to take photo or upload</div>
+      <div class="receipt-zone-sub">Camera or image file</div>
+    </div>
+    <input type="file" id="file-input" accept="image/*" capture="environment" style="display:none" onchange="handlePhoto(event)">
+    <div class="receipt-preview" id="receipt-preview">
+      <img id="receipt-img" src="" alt="Receipt photo">
+      <div class="receipt-amount-row">
+        <span class="receipt-amount-label">Total:</span>
+        <span style="font-size:16px;color:#ccc;font-family:'DM Mono',monospace;">R</span>
+        <input type="number" class="receipt-amount-input" id="receipt-amount" placeholder="0.00" inputmode="decimal">
+      </div>
+      <button class="btn-secondary" onclick="confirmReceiptAmount()">✓ Confirm amount</button>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-label">Category</div>
+    <div class="pill-grid" id="receipt-pills"></div>
+  </div>
+  <div class="section">
+    <div class="section-label">Note (optional)</div>
+    <input type="text" class="text-input" id="receipt-note" placeholder="e.g. Pick n Pay receipt">
+  </div>
+  <button class="btn-primary" id="receipt-submit-btn" onclick="logReceiptExpense()">Log Receipt Expense</button>
+</div>
+
+<!-- HISTORY -->
+<div id="screen-history" class="screen">
+  <div class="summary-card" id="summary-card" style="display:none">
+    <div class="summary-title">This month</div>
+    <div id="summary-rows"></div>
+  </div>
+  <div id="tx-list"></div>
+</div>
+
+<!-- SETTINGS -->
+<div id="screen-settings" class="screen">
+  <div class="settings-card">
+    <div class="settings-title">Monthly Budget Amounts</div>
+    <div id="settings-rows"></div>
+    <button class="btn-primary" style="margin-top:6px" onclick="saveBudgets()">Save Budgets</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const CATS = [
+  { name:'House', icon:'🏠' },
+  { name:'Savings', icon:'💰' },
+  { name:'Groceries', icon:'🛒' },
+  { name:'Spending Money', icon:'🎒' },
+  { name:'Date Nights', icon:'🌙' },
+  { name:'Transport', icon:'🚗' },
+  { name:'Subscriptions', icon:'📱' },
+  { name:'Other', icon:'📦' }
+];
+
+let budgets = {};
+let transactions = [];
+let selectedLogCat = null;
+let selectedReceiptCat = null;
+let receiptConfirmedAmount = null;
+
+// ── API helpers ──────────────────────────────────────────
+
+async function apiFetch(url, opts = {}) {
+  const res = await fetch(url, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts
+  });
+  return res.json();
+}
+
+async function loadAll() {
+  const [budgetRows, txRows] = await Promise.all([
+    apiFetch('/api/budgets'),
+    apiFetch('/api/transactions')
+  ]);
+  budgets = {};
+  budgetRows.forEach(r => budgets[r.category] = r.amount);
+  transactions = txRows;
+  renderDashboard();
+}
+
+// ── Helpers ──────────────────────────────────────────────
+
+function R(n) {
+  return 'R' + Math.round(n).toLocaleString('en-ZA');
+}
+
+function getSpent() {
+  const spent = {};
+  CATS.forEach(c => spent[c.name] = 0);
+  transactions.forEach(t => {
+    if (spent[t.category] !== undefined) spent[t.category] += t.amount;
+  });
+  return spent;
+}
+
+function getMonthLabel() {
+  return new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+}
+
+function today() {
+  return new Date().toISOString().split('T')[0];
+}
+
+// ── Render Dashboard ─────────────────────────────────────
+
+function renderDashboard() {
+  const spent = getSpent();
+  const totalBudget = Object.values(budgets).reduce((s, v) => s + v, 0);
+  const totalSpent = Object.values(spent).reduce((s, v) => s + v, 0);
+  const remaining = totalBudget - totalSpent;
+
+  document.getElementById('total-remaining').textContent = R(Math.max(0, remaining));
+  document.getElementById('month-label').textContent = getMonthLabel().toUpperCase();
+
+  const grid = document.getElementById('budget-grid');
+  grid.innerHTML = CATS.map(cat => {
+    const s = spent[cat.name] || 0;
+    const budget = budgets[cat.name] || 0;
+    const rem = budget - s;
+    const pct = budget ? Math.min(100, (s / budget) * 100) : 0;
+    const over = rem < 0;
+    const warn = pct >= 80 && !over;
+    return `
+      <div class="budget-card">
+        <div class="budget-card-top">
+          <span class="cat-name"><span class="cat-icon">${cat.icon}</span>${cat.name}</span>
+          <div class="cat-right">
+            <div class="cat-remaining ${over ? 'over' : ''}">${R(Math.abs(rem))}${over ? ' over' : ''}</div>
+            <div class="cat-budget-label">of ${R(budget)}</div>
+          </div>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill ${warn ? 'warn' : over ? 'over' : ''}" style="width:${pct}%"></div>
+        </div>
+        <div class="cat-meta">
+          <span>spent</span>
+          <span>${R(s)}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Render pills ─────────────────────────────────────────
+
+function renderPills(containerId, getSelected, setSelected) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = CATS.map(cat => `
+    <div class="pill ${getSelected() === cat.name ? 'selected' : ''}"
+         onclick="selectPill('${containerId}', '${cat.name}', ${setSelected.name})">
+      ${cat.icon} ${cat.name}
+    </div>`).join('');
+}
+
+function selectPill(containerId, name, setFn) {
+  setFn(name);
+  document.querySelectorAll(`#${containerId} .pill`).forEach(p => {
+    p.classList.toggle('selected', p.textContent.trim().includes(name));
+  });
+}
+
+function setLogCat(n) { selectedLogCat = n; }
+function setReceiptCat(n) { selectedReceiptCat = n; }
+
+// ── Log expense ──────────────────────────────────────────
+
+async function logExpense() {
+  const amt = parseFloat(document.getElementById('log-amount').value);
+  if (!amt || amt <= 0) { toast('Enter an amount'); return; }
+  if (!selectedLogCat) { toast('Pick a category'); return; }
+  const note = document.getElementById('log-note').value.trim();
+
+  await apiFetch('/api/transactions', {
+    method: 'POST',
+    body: JSON.stringify({ amount: amt, category: selectedLogCat, note, date: today() })
+  });
+
+  document.getElementById('log-amount').value = '';
+  document.getElementById('log-note').value = '';
+  selectedLogCat = null;
+
+  await loadAll();
+  renderPills('log-pills', () => null, setLogCat);
+  toast(`Logged ${R(amt)} → ${selectedLogCat || ''}`);
+  showScreen('dashboard');
+}
+
+// ── Receipt ──────────────────────────────────────────────
+
+function handlePhoto(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('receipt-img').src = ev.target.result;
+    document.getElementById('receipt-preview').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function confirmReceiptAmount() {
+  const amt = parseFloat(document.getElementById('receipt-amount').value);
+  if (!amt || amt <= 0) { toast('Enter the receipt total'); return; }
+  receiptConfirmedAmount = amt;
+  toast(`Amount set: ${R(amt)} — now pick a category`);
+}
+
+async function logReceiptExpense() {
+  const amt = receiptConfirmedAmount || parseFloat(document.getElementById('receipt-amount').value);
+  if (!amt || amt <= 0) { toast('Enter or confirm the receipt amount'); return; }
+  if (!selectedReceiptCat) { toast('Pick a category'); return; }
+  const note = document.getElementById('receipt-note').value.trim() || 'Receipt';
+
+  await apiFetch('/api/transactions', {
+    method: 'POST',
+    body: JSON.stringify({ amount: amt, category: selectedReceiptCat, note, date: today() })
+  });
+
+  document.getElementById('receipt-preview').style.display = 'none';
+  document.getElementById('receipt-amount').value = '';
+  document.getElementById('receipt-note').value = '';
+  document.getElementById('file-input').value = '';
+  selectedReceiptCat = null;
+  receiptConfirmedAmount = null;
+
+  await loadAll();
+  renderPills('receipt-pills', () => null, setReceiptCat);
+  toast('Receipt logged!');
+  showScreen('dashboard');
+}
+
+// ── History ──────────────────────────────────────────────
+
+async function renderHistory() {
+  const allTxs = await apiFetch('/api/transactions');
+  const spent = {};
+  CATS.forEach(c => spent[c.name] = 0);
+  allTxs.forEach(t => { if (spent[t.category] !== undefined) spent[t.category] += t.amount; });
+
+  const topCats = Object.entries(spent).filter(([,v]) => v > 0).sort((a,b) => b[1]-a[1]);
+  const totalSpent = topCats.reduce((s,[,v]) => s+v, 0);
+
+  const summaryCard = document.getElementById('summary-card');
+  if (topCats.length) {
+    summaryCard.style.display = 'block';
+    document.getElementById('summary-rows').innerHTML = [
+      ...topCats.map(([cat, amt]) => `
+        <div class="summary-row">
+          <span class="summary-cat">${CATS.find(c=>c.name===cat)?.icon || ''} ${cat}</span>
+          <span class="summary-amt">${R(amt)}</span>
+        </div>`),
+      `<div class="summary-row">
+        <span class="summary-cat summary-total">Total spent</span>
+        <span class="summary-amt summary-total">${R(totalSpent)}</span>
+      </div>`
+    ].join('');
+  } else {
+    summaryCard.style.display = 'none';
+  }
+
+  const list = document.getElementById('tx-list');
+  if (!allTxs.length) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">📊</div>No expenses yet this month.</div>`;
+    return;
+  }
+  list.innerHTML = allTxs.map(t => {
+    const cat = CATS.find(c => c.name === t.category) || { icon: '📦' };
+    const d = new Date(t.date + 'T00:00:00');
+    const dateStr = d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
+    return `
+      <div class="tx-item">
+        <div class="tx-icon-box">${cat.icon}</div>
+        <div class="tx-body">
+          <div class="tx-cat">${t.category}</div>
+          <div class="tx-note">${t.note || '—'}</div>
+          <div class="tx-date">${dateStr}</div>
+        </div>
+        <div class="tx-right">
+          <span class="tx-amount">-${R(t.amount)}</span>
+          <button class="tx-delete" onclick="deleteTransaction(${t.id})">delete</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function deleteTransaction(id) {
+  if (!confirm('Delete this transaction?')) return;
+  await apiFetch(`/api/transactions/${id}`, { method: 'DELETE' });
+  await loadAll();
+  renderHistory();
+  toast('Deleted');
+}
+
+// ── Settings ─────────────────────────────────────────────
+
+function renderSettings() {
+  document.getElementById('settings-rows').innerHTML = CATS.map(cat => `
+    <div class="settings-row">
+      <span class="settings-icon">${cat.icon}</span>
+      <span class="settings-cat-name">${cat.name}</span>
+      <span class="settings-prefix">R</span>
+      <input type="number" class="settings-input" id="budget-${cat.name.replace(/\s/g,'-')}"
+             value="${Math.round(budgets[cat.name] || 0)}" inputmode="numeric" min="0">
+    </div>`).join('');
+}
+
+async function saveBudgets() {
+  const updates = CATS.map(cat => {
+    const input = document.getElementById('budget-' + cat.name.replace(/\s/g,'-'));
+    return { category: cat.name, amount: parseFloat(input.value) || 0 };
+  });
+  await Promise.all(updates.map(u =>
+    apiFetch(`/api/budgets/${encodeURIComponent(u.category)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ amount: u.amount })
+    })
+  ));
+  await loadAll();
+  toast('Budgets saved!');
+  showScreen('dashboard');
+}
+
+// ── Navigation ───────────────────────────────────────────
+
+const SCREENS = ['dashboard', 'log', 'receipt', 'history', 'settings'];
+
+function showScreen(name) {
+  SCREENS.forEach(s => {
+    document.getElementById('screen-' + s).classList.toggle('active', s === name);
+  });
+  document.querySelectorAll('.nav-btn').forEach((b, i) => {
+    b.classList.toggle('active', SCREENS[i] === name);
+  });
+  if (name === 'log') renderPills('log-pills', () => selectedLogCat, setLogCat);
+  if (name === 'receipt') renderPills('receipt-pills', () => selectedReceiptCat, setReceiptCat);
+  if (name === 'history') renderHistory();
+  if (name === 'settings') renderSettings();
+}
+
+// ── Toast ─────────────────────────────────────────────────
+
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+// ── Init ──────────────────────────────────────────────────
+loadAll();
+</script>
+</body>
+</html>
