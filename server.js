@@ -47,6 +47,9 @@ if (budgetCount.c === 0) {
   defaults.forEach(([cat, amt]) => insert.run(cat, amt));
 }
 
+// Health check endpoint
+app.get('/health', (req, res) => res.sendStatus(200));
+
 // ── API routes ──────────────────────────────────────────
 
 // GET all budgets
