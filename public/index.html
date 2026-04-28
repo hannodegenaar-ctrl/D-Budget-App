@@ -475,6 +475,7 @@ function renderPills(containerId, getSelected, setSelected) {
   container.innerHTML = ALL_CATS.map(cat => `
     <div class="pill ${getSelected() === cat.name ? 'selected' : ''}"
          onclick="selectPill('${containerId}', '${cat.name}', ${setSelected.name})">
+          data-name="${cat.name}"
       ${cat.icon} ${cat.name}
     </div>`).join('');
 }
