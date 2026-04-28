@@ -26,25 +26,46 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS budgets (
     category TEXT PRIMARY KEY,
-    amount REAL NOT NULL
+    amount REAL NOT NULL,
+    type TEXT NOT NULL DEFAULT 'budget'
   );
 `);
+
+// Add type column to budgets if it doesn't exist yet (migration for existing DBs)
+try {
+  db.exec(`ALTER TABLE budgets ADD COLUMN type TEXT NOT NULL DEFAULT 'budget'`);
+} catch (_) { /* column already exists */ }
 
 // Seed default budgets if empty
 const budgetCount = db.prepare('SELECT COUNT(*) as c FROM budgets').get();
 if (budgetCount.c === 0) {
   const defaults = [
-    ['House', 12000],
-    ['Savings', 5000],
-    ['Groceries', 4000],
-    ['Spending Money', 3000],
-    ['Date Nights', 1500],
-    ['Transport', 2500],
-    ['Subscriptions', 800],
-    ['Other', 1000]
+    // Original budget categories
+    ['House', 12000, 'budget'],
+    ['Groceries', 4000, 'budget'],
+    ['Spending Money', 3000, 'budget'],
+    ['Date Nights', 1500, 'budget'],
+    ['Transport', 2500, 'budget'],
+    ['Subscriptions', 800, 'budget'],
+    ['Other', 1000, 'budget'],
+    // Expense categories
+    ['Loans', 3000, 'expense'],
+    ['Rent', 8000, 'expense'],
+    ['Insurance', 2000, 'expense'],
+    ['Internet', 800, 'expense'],
+    // Income categories
+    ['Rent Income', 0, 'income'],
+    ['One-Time Gifts', 0, 'income'],
+    ['Supporters', 0, 'income'],
+    ['Alternative Income', 0, 'income'],
+    // Savings categories
+    ['Investments', 5000, 'savings'],
+    ['House Improvement', 2000, 'savings'],
+    ['Maintenance', 1000, 'savings'],
+    ['Travel', 1500, 'savings'],
   ];
-  const insert = db.prepare('INSERT INTO budgets (category, amount) VALUES (?, ?)');
-  defaults.forEach(([cat, amt]) => insert.run(cat, amt));
+  const insert = db.prepare('INSERT INTO budgets (category, amount, type) VALUES (?, ?, ?)');
+  defaults.forEach(([cat, amt, type]) => insert.run(cat, amt, type));
 }
 
 // Health check endpoint
