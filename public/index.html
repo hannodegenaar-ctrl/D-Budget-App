@@ -19,8 +19,9 @@
   .total-sub { font-size: 12px; opacity: 0.45; margin-top: 4px; }
 
   /* ── Nav ── */
-  .nav { display: flex; background: #fff; border-bottom: 1px solid #ece8e1; position: sticky; top: 97px; z-index: 99; }
-  .nav-btn { flex: 1; padding: 13px 4px; font-size: 11px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; border: none; background: none; cursor: pointer; color: #999; font-family: 'DM Sans', sans-serif; border-bottom: 2px solid transparent; transition: all 0.15s; }
+  .nav { display: flex; background: #fff; border-bottom: 1px solid #ece8e1; position: sticky; top: 97px; z-index: 99; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav-btn { flex: 0 0 auto; padding: 13px 12px; font-size: 11px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; border: none; background: none; cursor: pointer; color: #999; font-family: 'DM Sans', sans-serif; border-bottom: 2px solid transparent; transition: all 0.15s; white-space: nowrap; }
   .nav-btn.active { color: #1a1a1a; border-bottom-color: #1a1a1a; }
 
   /* ── Screens ── */
@@ -35,6 +36,10 @@
   .cat-right { text-align: right; }
   .cat-remaining { font-size: 16px; font-weight: 600; font-family: 'DM Mono', monospace; }
   .cat-remaining.over { color: #C8462D; }
+  .cat-remaining.income-positive { color: #2D7A3A; }
+  .progress-fill.income { background: #2D7A3A; }
+  .progress-fill.savings { background: #1a5fa8; }
+  .screen-label { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #bbb; padding: 10px 2px 8px; }
   .cat-budget-label { font-size: 11px; color: #bbb; font-family: 'DM Mono', monospace; }
   .progress-bar { height: 5px; background: #f0ece6; border-radius: 3px; overflow: hidden; }
   .progress-fill { height: 100%; border-radius: 3px; background: #1a1a1a; transition: width 0.5s ease; }
@@ -135,6 +140,9 @@
 
 <div class="nav">
   <button class="nav-btn active" onclick="showScreen('dashboard')">Budget</button>
+  <button class="nav-btn" onclick="showScreen('expenses')">Expenses</button>
+  <button class="nav-btn" onclick="showScreen('income')">Income</button>
+  <button class="nav-btn" onclick="showScreen('savings')">Savings</button>
   <button class="nav-btn" onclick="showScreen('log')">Log</button>
   <button class="nav-btn" onclick="showScreen('receipt')">Receipt</button>
   <button class="nav-btn" onclick="showScreen('history')">History</button>
@@ -144,6 +152,21 @@
 <!-- DASHBOARD -->
 <div id="screen-dashboard" class="screen active">
   <div id="budget-grid"></div>
+</div>
+
+<!-- EXPENSES -->
+<div id="screen-expenses" class="screen">
+  <div id="expenses-grid"></div>
+</div>
+
+<!-- INCOME -->
+<div id="screen-income" class="screen">
+  <div id="income-grid"></div>
+</div>
+
+<!-- SAVINGS -->
+<div id="screen-savings" class="screen">
+  <div id="savings-grid"></div>
 </div>
 
 <!-- LOG EXPENSE -->
@@ -209,18 +232,30 @@
 <!-- SETTINGS -->
 <div id="screen-settings" class="screen">
   <div class="settings-card">
-    <div class="settings-title">Monthly Budget Amounts</div>
-    <div id="settings-rows"></div>
-    <button class="btn-primary" style="margin-top:6px" onclick="saveBudgets()">Save Budgets</button>
+    <div class="settings-title">Budget Categories</div>
+    <div id="settings-rows-budget"></div>
   </div>
+  <div class="settings-card">
+    <div class="settings-title">Expense Categories</div>
+    <div id="settings-rows-expense"></div>
+  </div>
+  <div class="settings-card">
+    <div class="settings-title">Income Categories</div>
+    <div id="settings-rows-income"></div>
+  </div>
+  <div class="settings-card">
+    <div class="settings-title">Savings Categories</div>
+    <div id="settings-rows-savings"></div>
+  </div>
+  <button class="btn-primary" style="margin-top:6px" onclick="saveBudgets()">Save All Budgets</button>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
+// ── Category definitions ──────────────────────────────────
 const CATS = [
   { name:'House', icon:'🏠' },
-  { name:'Savings', icon:'💰' },
   { name:'Groceries', icon:'🛒' },
   { name:'Spending Money', icon:'🎒' },
   { name:'Date Nights', icon:'🌙' },
@@ -229,7 +264,32 @@ const CATS = [
   { name:'Other', icon:'📦' }
 ];
 
+const CATS_EXPENSES = [
+  { name:'Loans', icon:'🏦' },
+  { name:'Rent', icon:'🏡' },
+  { name:'Insurance', icon:'🛡️' },
+  { name:'Internet', icon:'📡' }
+];
+
+const CATS_INCOME = [
+  { name:'Rent Income', icon:'💵' },
+  { name:'One-Time Gifts', icon:'🎁' },
+  { name:'Supporters', icon:'🤝' },
+  { name:'Alternative Income', icon:'💼' }
+];
+
+const CATS_SAVINGS = [
+  { name:'Investments', icon:'📈' },
+  { name:'House Improvement', icon:'🔨' },
+  { name:'Maintenance', icon:'🔧' },
+  { name:'Travel', icon:'✈️' }
+];
+
+// All cats combined for icon lookup
+const ALL_CATS = [...CATS, ...CATS_EXPENSES, ...CATS_INCOME, ...CATS_SAVINGS];
+
 let budgets = {};
+let budgetTypes = {};
 let transactions = [];
 let selectedLogCat = null;
 let selectedReceiptCat = null;
@@ -251,7 +311,11 @@ async function loadAll() {
     apiFetch('/api/transactions')
   ]);
   budgets = {};
-  budgetRows.forEach(r => budgets[r.category] = r.amount);
+  budgetTypes = {};
+  budgetRows.forEach(r => {
+    budgets[r.category] = r.amount;
+    budgetTypes[r.category] = r.type || 'budget';
+  });
   transactions = txRows;
   renderDashboard();
 }
@@ -262,9 +326,9 @@ function R(n) {
   return 'R' + Math.round(n).toLocaleString('en-ZA');
 }
 
-function getSpent() {
+function getSpentForCats(cats) {
   const spent = {};
-  CATS.forEach(c => spent[c.name] = 0);
+  cats.forEach(c => spent[c.name] = 0);
   transactions.forEach(t => {
     if (spent[t.category] !== undefined) spent[t.category] += t.amount;
   });
@@ -279,21 +343,62 @@ function today() {
   return new Date().toISOString().split('T')[0];
 }
 
-// ── Render Dashboard ─────────────────────────────────────
+// ── Render budget cards (shared) ─────────────────────────
 
-function renderDashboard() {
-  const spent = getSpent();
-  const totalBudget = Object.values(budgets).reduce((s, v) => s + v, 0);
-  const totalSpent = Object.values(spent).reduce((s, v) => s + v, 0);
-  const remaining = totalBudget - totalSpent;
-
-  document.getElementById('total-remaining').textContent = R(Math.max(0, remaining));
-  document.getElementById('month-label').textContent = getMonthLabel().toUpperCase();
-
-  const grid = document.getElementById('budget-grid');
-  grid.innerHTML = CATS.map(cat => {
+function buildBudgetCards(cats, spent, mode) {
+  // mode: 'budget' | 'expense' | 'income' | 'savings'
+  return cats.map(cat => {
     const s = spent[cat.name] || 0;
     const budget = budgets[cat.name] || 0;
+
+    if (mode === 'income') {
+      // For income: show how much received vs target
+      const received = s;
+      const pct = budget ? Math.min(100, (received / budget) * 100) : 0;
+      const met = received >= budget && budget > 0;
+      return `
+        <div class="budget-card">
+          <div class="budget-card-top">
+            <span class="cat-name"><span class="cat-icon">${cat.icon}</span>${cat.name}</span>
+            <div class="cat-right">
+              <div class="cat-remaining ${met ? 'income-positive' : ''}">${R(received)}</div>
+              <div class="cat-budget-label">target ${R(budget)}</div>
+            </div>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill income" style="width:${pct}%"></div>
+          </div>
+          <div class="cat-meta">
+            <span>received</span>
+            <span>${pct.toFixed(0)}%</span>
+          </div>
+        </div>`;
+    }
+
+    if (mode === 'savings') {
+      const saved = s;
+      const pct = budget ? Math.min(100, (saved / budget) * 100) : 0;
+      const met = saved >= budget && budget > 0;
+      return `
+        <div class="budget-card">
+          <div class="budget-card-top">
+            <span class="cat-name"><span class="cat-icon">${cat.icon}</span>${cat.name}</span>
+            <div class="cat-right">
+              <div class="cat-remaining ${met ? 'income-positive' : ''}">${R(saved)}</div>
+              <div class="cat-budget-label">goal ${R(budget)}</div>
+            </div>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill savings" style="width:${pct}%"></div>
+          </div>
+          <div class="cat-meta">
+            <span>saved</span>
+            <span>${pct.toFixed(0)}%</span>
+          </div>
+        </div>`;
+    }
+
+    // budget / expense mode
     const rem = budget - s;
     const pct = budget ? Math.min(100, (s / budget) * 100) : 0;
     const over = rem < 0;
@@ -318,11 +423,56 @@ function renderDashboard() {
   }).join('');
 }
 
+// ── Render Dashboard ─────────────────────────────────────
+
+function renderDashboard() {
+  const spent = getSpentForCats(CATS);
+  const totalBudget = CATS.reduce((s, c) => s + (budgets[c.name] || 0), 0);
+  const totalSpent = Object.values(spent).reduce((s, v) => s + v, 0);
+  const remaining = totalBudget - totalSpent;
+
+  document.getElementById('total-remaining').textContent = R(Math.max(0, remaining));
+  document.getElementById('month-label').textContent = getMonthLabel().toUpperCase();
+
+  document.getElementById('budget-grid').innerHTML = buildBudgetCards(CATS, spent, 'budget');
+}
+
+// ── Render Expenses screen ────────────────────────────────
+
+function renderExpenses() {
+  const spent = getSpentForCats(CATS_EXPENSES);
+  document.getElementById('expenses-grid').innerHTML = buildBudgetCards(CATS_EXPENSES, spent, 'expense');
+}
+
+// ── Render Income screen ──────────────────────────────────
+
+function renderIncome() {
+  const spent = getSpentForCats(CATS_INCOME);
+  const totalReceived = Object.values(spent).reduce((s, v) => s + v, 0);
+  const totalTarget = CATS_INCOME.reduce((s, c) => s + (budgets[c.name] || 0), 0);
+
+  document.getElementById('income-grid').innerHTML =
+    `<div class="screen-label">Total received: ${R(totalReceived)} / ${R(totalTarget)}</div>` +
+    buildBudgetCards(CATS_INCOME, spent, 'income');
+}
+
+// ── Render Savings screen ─────────────────────────────────
+
+function renderSavings() {
+  const spent = getSpentForCats(CATS_SAVINGS);
+  const totalSaved = Object.values(spent).reduce((s, v) => s + v, 0);
+  const totalGoal = CATS_SAVINGS.reduce((s, c) => s + (budgets[c.name] || 0), 0);
+
+  document.getElementById('savings-grid').innerHTML =
+    `<div class="screen-label">Total saved: ${R(totalSaved)} / ${R(totalGoal)}</div>` +
+    buildBudgetCards(CATS_SAVINGS, spent, 'savings');
+}
+
 // ── Render pills ─────────────────────────────────────────
 
 function renderPills(containerId, getSelected, setSelected) {
   const container = document.getElementById(containerId);
-  container.innerHTML = CATS.map(cat => `
+  container.innerHTML = ALL_CATS.map(cat => `
     <div class="pill ${getSelected() === cat.name ? 'selected' : ''}"
          onclick="selectPill('${containerId}', '${cat.name}', ${setSelected.name})">
       ${cat.icon} ${cat.name}
@@ -354,11 +504,12 @@ async function logExpense() {
 
   document.getElementById('log-amount').value = '';
   document.getElementById('log-note').value = '';
+  const loggedCat = selectedLogCat;
   selectedLogCat = null;
 
   await loadAll();
   renderPills('log-pills', () => null, setLogCat);
-  toast(`Logged ${R(amt)} → ${selectedLogCat || ''}`);
+  toast(`Logged ${R(amt)} → ${loggedCat}`);
   showScreen('dashboard');
 }
 
@@ -410,8 +561,10 @@ async function logReceiptExpense() {
 
 async function renderHistory() {
   const allTxs = await apiFetch('/api/transactions');
+
+  // Build spent map across all categories
   const spent = {};
-  CATS.forEach(c => spent[c.name] = 0);
+  ALL_CATS.forEach(c => spent[c.name] = 0);
   allTxs.forEach(t => { if (spent[t.category] !== undefined) spent[t.category] += t.amount; });
 
   const topCats = Object.entries(spent).filter(([,v]) => v > 0).sort((a,b) => b[1]-a[1]);
@@ -423,11 +576,11 @@ async function renderHistory() {
     document.getElementById('summary-rows').innerHTML = [
       ...topCats.map(([cat, amt]) => `
         <div class="summary-row">
-          <span class="summary-cat">${CATS.find(c=>c.name===cat)?.icon || ''} ${cat}</span>
+          <span class="summary-cat">${ALL_CATS.find(c=>c.name===cat)?.icon || '📦'} ${cat}</span>
           <span class="summary-amt">${R(amt)}</span>
         </div>`),
       `<div class="summary-row">
-        <span class="summary-cat summary-total">Total spent</span>
+        <span class="summary-cat summary-total">Total</span>
         <span class="summary-amt summary-total">${R(totalSpent)}</span>
       </div>`
     ].join('');
@@ -437,11 +590,11 @@ async function renderHistory() {
 
   const list = document.getElementById('tx-list');
   if (!allTxs.length) {
-    list.innerHTML = `<div class="empty-state"><div class="empty-icon">📊</div>No expenses yet this month.</div>`;
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">📊</div>No transactions yet this month.</div>`;
     return;
   }
   list.innerHTML = allTxs.map(t => {
-    const cat = CATS.find(c => c.name === t.category) || { icon: '📦' };
+    const cat = ALL_CATS.find(c => c.name === t.category) || { icon: '📦' };
     const d = new Date(t.date + 'T00:00:00');
     const dateStr = d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
     return `
@@ -470,8 +623,8 @@ async function deleteTransaction(id) {
 
 // ── Settings ─────────────────────────────────────────────
 
-function renderSettings() {
-  document.getElementById('settings-rows').innerHTML = CATS.map(cat => `
+function renderSettingsSection(containerId, cats) {
+  document.getElementById(containerId).innerHTML = cats.map(cat => `
     <div class="settings-row">
       <span class="settings-icon">${cat.icon}</span>
       <span class="settings-cat-name">${cat.name}</span>
@@ -481,10 +634,17 @@ function renderSettings() {
     </div>`).join('');
 }
 
+function renderSettings() {
+  renderSettingsSection('settings-rows-budget', CATS);
+  renderSettingsSection('settings-rows-expense', CATS_EXPENSES);
+  renderSettingsSection('settings-rows-income', CATS_INCOME);
+  renderSettingsSection('settings-rows-savings', CATS_SAVINGS);
+}
+
 async function saveBudgets() {
-  const updates = CATS.map(cat => {
+  const updates = ALL_CATS.map(cat => {
     const input = document.getElementById('budget-' + cat.name.replace(/\s/g,'-'));
-    return { category: cat.name, amount: parseFloat(input.value) || 0 };
+    return { category: cat.name, amount: parseFloat(input?.value) || 0 };
   });
   await Promise.all(updates.map(u =>
     apiFetch(`/api/budgets/${encodeURIComponent(u.category)}`, {
@@ -499,7 +659,7 @@ async function saveBudgets() {
 
 // ── Navigation ───────────────────────────────────────────
 
-const SCREENS = ['dashboard', 'log', 'receipt', 'history', 'settings'];
+const SCREENS = ['dashboard', 'expenses', 'income', 'savings', 'log', 'receipt', 'history', 'settings'];
 
 function showScreen(name) {
   SCREENS.forEach(s => {
@@ -508,6 +668,9 @@ function showScreen(name) {
   document.querySelectorAll('.nav-btn').forEach((b, i) => {
     b.classList.toggle('active', SCREENS[i] === name);
   });
+  if (name === 'expenses') renderExpenses();
+  if (name === 'income') renderIncome();
+  if (name === 'savings') renderSavings();
   if (name === 'log') renderPills('log-pills', () => selectedLogCat, setLogCat);
   if (name === 'receipt') renderPills('receipt-pills', () => selectedReceiptCat, setReceiptCat);
   if (name === 'history') renderHistory();
