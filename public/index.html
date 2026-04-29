@@ -135,7 +135,7 @@
     <span class="month-label" id="month-label"></span>
   </div>
   <div class="total-remaining" id="total-remaining">R—</div>
-  <div class="total-sub">remaining this month</div>
+  <div class="total-sub" id="total-sub">money left this month</div>
 </div>
 
 <div class="nav">
@@ -255,7 +255,7 @@
 <script>
 // ── Category definitions ──────────────────────────────────
 const CATS = [
-  { name:'House', icon:'🏠' },
+  { name:'Household', icon:'🏠' },
   { name:'Groceries', icon:'🛒' },
   { name:'Spending Money', icon:'🎒' },
   { name:'Date Nights', icon:'🌙' },
@@ -426,15 +426,50 @@ function buildBudgetCards(cats, spent, mode) {
 // ── Render Dashboard ─────────────────────────────────────
 
 function renderDashboard() {
-  const spent = getSpentForCats(CATS);
-  const totalBudget = CATS.reduce((s, c) => s + (budgets[c.name] || 0), 0);
-  const totalSpent = Object.values(spent).reduce((s, v) => s + v, 0);
-  const remaining = totalBudget - totalSpent;
+  // Compute spent per category group
+  const spentBudget   = getSpentForCats(CATS);
+  const spentExpenses = getSpentForCats(CATS_EXPENSES);
+  const spentIncome   = getSpentForCats(CATS_INCOME);
+  const spentSavings  = getSpentForCats(CATS_SAVINGS);
 
-  document.getElementById('total-remaining').textContent = R(Math.max(0, remaining));
+  // Subtotals
+  const totalBudgetSpend   = Object.values(spentBudget).reduce((s, v) => s + v, 0);
+  const totalExpenseSpend  = Object.values(spentExpenses).reduce((s, v) => s + v, 0);
+  const totalIncomeReceived = Object.values(spentIncome).reduce((s, v) => s + v, 0);
+  const totalSaved         = Object.values(spentSavings).reduce((s, v) => s + v, 0);
+
+  // Running total: Income − Expenses − Budget Spending = Money Left
+  const moneyLeft = totalIncomeReceived - totalExpenseSpend - totalBudgetSpend;
+
+  document.getElementById('total-remaining').textContent = R(moneyLeft);
+  document.getElementById('total-sub').textContent =
+    `income ${R(totalIncomeReceived)} − expenses ${R(totalExpenseSpend)} − budget ${R(totalBudgetSpend)}`;
   document.getElementById('month-label').textContent = getMonthLabel().toUpperCase();
 
-  document.getElementById('budget-grid').innerHTML = buildBudgetCards(CATS, spent, 'budget');
+  // Section subtotal helper
+  function sectionHeader(label, subtotalHtml) {
+    return `<div class="screen-label" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>${label}</span><span style="font-family:'DM Mono',monospace;font-size:11px;">${subtotalHtml}</span>
+    </div>`;
+  }
+
+  const budgetTotal   = CATS.reduce((s, c) => s + (budgets[c.name] || 0), 0);
+  const expenseTotal  = CATS_EXPENSES.reduce((s, c) => s + (budgets[c.name] || 0), 0);
+  const incomeTarget  = CATS_INCOME.reduce((s, c) => s + (budgets[c.name] || 0), 0);
+  const savingsGoal   = CATS_SAVINGS.reduce((s, c) => s + (budgets[c.name] || 0), 0);
+
+  document.getElementById('budget-grid').innerHTML =
+    sectionHeader('💰 Budget', `${R(totalBudgetSpend)} / ${R(budgetTotal)}`) +
+    buildBudgetCards(CATS, spentBudget, 'budget') +
+
+    sectionHeader('📋 Expenses', `${R(totalExpenseSpend)} / ${R(expenseTotal)}`) +
+    buildBudgetCards(CATS_EXPENSES, spentExpenses, 'expense') +
+
+    sectionHeader('📥 Income', `${R(totalIncomeReceived)} / ${R(incomeTarget)}`) +
+    buildBudgetCards(CATS_INCOME, spentIncome, 'income') +
+
+    sectionHeader('🏦 Savings', `${R(totalSaved)} / ${R(savingsGoal)}`) +
+    buildBudgetCards(CATS_SAVINGS, spentSavings, 'savings');
 }
 
 // ── Render Expenses screen ────────────────────────────────
@@ -474,6 +509,7 @@ function renderPills(containerId, getSelected, setSelected) {
   const container = document.getElementById(containerId);
   container.innerHTML = ALL_CATS.map(cat => `
     <div class="pill ${getSelected() === cat.name ? 'selected' : ''}"
+         data-cat="${cat.name}"
          onclick="selectPill('${containerId}', '${cat.name}', ${setSelected.name})">
       ${cat.icon} ${cat.name}
     </div>`).join('');
@@ -482,7 +518,7 @@ function renderPills(containerId, getSelected, setSelected) {
 function selectPill(containerId, name, setFn) {
   setFn(name);
   document.querySelectorAll(`#${containerId} .pill`).forEach(p => {
-    p.classList.toggle('selected', p.textContent.trim().includes(name));
+    p.classList.toggle('selected', p.dataset.cat === name);
   });
 }
 

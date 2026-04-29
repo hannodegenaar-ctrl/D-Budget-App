@@ -36,12 +36,18 @@ try {
   db.exec(`ALTER TABLE budgets ADD COLUMN type TEXT NOT NULL DEFAULT 'budget'`);
 } catch (_) { /* column already exists */ }
 
+// Rename 'House' → 'Household' in budgets and transactions (migration for existing DBs)
+try {
+  db.prepare(`UPDATE budgets SET category = 'Household' WHERE category = 'House'`).run();
+  db.prepare(`UPDATE transactions SET category = 'Household' WHERE category = 'House'`).run();
+} catch (_) { /* migration already applied */ }
+
 // Seed default budgets if empty
 const budgetCount = db.prepare('SELECT COUNT(*) as c FROM budgets').get();
 if (budgetCount.c === 0) {
   const defaults = [
     // Original budget categories
-    ['House', 12000, 'budget'],
+    ['Household', 12000, 'budget'],
     ['Groceries', 4000, 'budget'],
     ['Spending Money', 3000, 'budget'],
     ['Date Nights', 1500, 'budget'],
